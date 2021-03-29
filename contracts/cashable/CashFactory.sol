@@ -2,35 +2,74 @@ pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./Cash.sol";
 
-/// @title CashFactory
-/// @notice EIP 1167 - allows to reuse different instances of one contract cheaply
-contract CashFactory is Ownable {
+contract CashFactory is Ownable, ReentrancyGuard {
 
-  /// @notice Emits when clone deployed
-  /// @param _clone Clone address
-  /// @param _main Address of base contract
-    event Cloned(address _clone, address _main);
+    using SafeERC20 for IERC20;
+    using Address for address;
 
-    /// @notice Used to predict clone address before deployment
-    /// @param _impl Base contract
-    /// @param _salt Some entropy
-    /// @return Predicted address of future clone
-    function predictCashAddress(address _impl, bytes32 _salt)
+    event CashMinted(address _cashClone, address _cashMain);
+
+    address public cashImpl;
+    address public controller;
+
+    constructor(address _cashImpl, address _controller) external {
+        cashImpl = _cashImpl;
+        controller = _controller;
+    }
+
+    function setCashImpl(address _cashImpl) external onlyOwner {
+        cashImpl = _cashImpl;
+    }
+
+    function setController(address _controller) external onlyOwner {
+        controller = _controller;
+    }
+
+    function predictCashAddress(bytes32 _salt)
         external
         view
         returns(address)
     {
-        return Clones.predictDeterministicAddress(_impl, _salt);
+        return Clones.predictDeterministicAddress(cashImpl, _salt);
     }
 
-    /// @notice Deploy clone
-    /// @param _impl Base contract
-    /// @param _salt Some entropy
-    function clone(address _impl, bytes32 _salt) onlyGovernance external {
-        address _result = Clones.cloneDeterministic(_impl, _salt);
-        emit Cloned(_result, _impl);
+    function mintCash(
+        bytes32 _salt,
+        address _token,
+        address _holder,
+        uint256 _nominal
+    ) external nonReentrant {
+
+        address sender = _msgSender();
+        require(sender != _holder, "holder==sender");
+        require(!_holder.isContract(), "holderIsContract");
+
+        address _result = Clones.cloneDeterministic(cashImpl, _salt);
+
+        Cash cashContract = Cash(_result);
+        cashContract.configure(_holder, _token, _nominal, owner(), controller);
+
+        if (_token != address(0)) {
+          require(IERC20(_token).allowance(sender, _result) >= _nominal, "!nominalToken");
+          IERC20(_token).safeTransferFrom(sender, _result, _nominal);
+        } else {
+          require(msg.value >= _nominal, "!nominalEth");
+          _result.sendValue(_nominal);
+          if (msg.value > _nominal) {
+            sender.sendValue(msg.value.sub(_nominal));
+          }
+        }
+
+        cashContract.transferOwnership(_holder);
+        cashContract.earn();
+        emit CashMinted(_result, cashImpl);
     }
 
 }
