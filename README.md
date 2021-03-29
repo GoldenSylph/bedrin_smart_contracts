@@ -1,6 +1,6 @@
-Miris Contract
+Bedrin Smart-contracts
 =================
-**The system of Smart-Contracts for bonds digitization** 
+**This is place where I experiment with Ethereum contracts.**
 
 ## Overview
 
@@ -37,12 +37,10 @@ Miris Contract
   INFURA_ID=<your_infura_project_id>
   ETHERSCAN_API_KEY=<your_etherscan_api_key>
   DEPLOYER_ACCOUNT=<your_ethereum_account>
-  TEAM_ACCOUNT=<team_ethereum_account>
-  START_TIME=<unix_timestamp>
  ```
-  
+
 - `npm run deploy` - deploy and configure all contracts in rinkeby testnet
-- `npm run deploy <network>` - deploy and configure all contracts for some network [NOT IMPLEMENTED]
+- `npm run deploy <network>` - deploy and configure all contracts for some network
 
 ### Verify deployed contracts
 
@@ -50,4 +48,3 @@ Miris Contract
 - `npm run verify <contract>` - verify only one contract in rinkeby testnet
 - `npm run verify all <network>` - verify all contracts in network
 - `npm run verify <contract> <network>` - verify only one contract in network
-
