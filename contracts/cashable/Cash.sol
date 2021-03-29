@@ -1,4 +1,5 @@
-pragma solidity ^0.6.0;
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity =0.8.3;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -18,7 +19,6 @@ contract Cash is Ownable, Initializable {
   using Address for address;
   using SafeMath for uint256;
 
-  address payable public holder;
   address public token;
   address public nominal;
   address public team;
@@ -31,24 +31,17 @@ contract Cash is Ownable, Initializable {
       _;
   }
 
-  modifier onlyHolder {
-      require(msg.sender == holder, "!holder");
-      _;
-  }
-
   modifier onlyTeam {
     require(msg.sender == team, "!team");
     _;
   }
 
   function configure(
-    address _holder,
     address _token,
     address _nominal,
     address _team,
     address _controller
   ) external initializer onlyCashFactory {
-      holder = _holder;
       token = _token;
       nominal = _nominal;
       team = _team;
@@ -67,12 +60,12 @@ contract Cash is Ownable, Initializable {
       } else {
           controller.sendValue(address(this).balance);
       }
-      CashController(controller).earn(address(this), token);
+      CashController(controller).earn(address(this));
       emit ReceivedToken(token);
   }
 
-  function burn(address payable to) external onlyHolder {
-      CashController(controller).withdraw(address(this), token);
+  function burn(address payable to) external onlyOwner {
+      CashController(controller).withdraw(address(this));
       if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
           uint256 tokenBalance = tokenErc20.balanceOf(address(this));

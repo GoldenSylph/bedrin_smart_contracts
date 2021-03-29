@@ -2,6 +2,6 @@
 pragma solidity =0.8.3;
 
 
-library CashLib {
-    address public constant ETH = address(0);
+interface IStrategy {
+
 }

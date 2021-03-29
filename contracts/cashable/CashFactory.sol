@@ -1,4 +1,5 @@
-pragma solidity ^0.6.0;
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity =0.8.3;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -9,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./Cash.sol";
+
 
 contract CashFactory is Ownable, ReentrancyGuard {
 
@@ -56,7 +58,7 @@ contract CashFactory is Ownable, ReentrancyGuard {
         address _result = Clones.cloneDeterministic(cashImpl, _salt);
 
         Cash cashContract = Cash(_result);
-        cashContract.configure(_holder, _token, _nominal, owner(), controller);
+        cashContract.configure(_token, _nominal, owner(), controller);
 
         if (_token != CashLib.ETH) {
           require(IERC20(_token).allowance(sender, _result) >= _nominal, "!nominalToken");

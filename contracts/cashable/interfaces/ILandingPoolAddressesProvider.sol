@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: MIT
-pragma solidity =0.6.6;
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity =0.8.3;
+
 
 /**
 @title ILendingPoolAddressesProvider interface
 @notice provides the interface to fetch the LendingPoolCore address
  */
-
 abstract contract ILendingPoolAddressesProvider {
 
     function getLendingPool() public view virtual returns (address);
