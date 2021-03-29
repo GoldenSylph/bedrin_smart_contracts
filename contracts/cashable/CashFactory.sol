@@ -3,6 +3,7 @@ pragma solidity ^0.6.0;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -13,6 +14,7 @@ contract CashFactory is Ownable, ReentrancyGuard {
 
     using SafeERC20 for IERC20;
     using Address for address;
+    using SafeMath for uint256;
 
     event CashMinted(address _cashClone, address _cashMain);
 
@@ -56,7 +58,7 @@ contract CashFactory is Ownable, ReentrancyGuard {
         Cash cashContract = Cash(_result);
         cashContract.configure(_holder, _token, _nominal, owner(), controller);
 
-        if (_token != address(0)) {
+        if (_token != CashLib.ETH) {
           require(IERC20(_token).allowance(sender, _result) >= _nominal, "!nominalToken");
           IERC20(_token).safeTransferFrom(sender, _result, _nominal);
         } else {

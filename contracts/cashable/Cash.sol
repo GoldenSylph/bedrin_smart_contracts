@@ -6,21 +6,23 @@ import "@openzeppelin/contracts/proxy/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./CashController.sol";
+import "./lib/CashLib.sol";
+
 
 contract Cash is Ownable, Initializable {
 
   using SafeERC20 for IERC20;
   using Address for address;
+  using SafeMath for uint256;
 
   address payable public holder;
   address public token;
   address public nominal;
   address public team;
   address public controller;
-
-  address public constant ETH = address(0);
 
   event ReceivedToken(address indexed token);
 
@@ -32,6 +34,11 @@ contract Cash is Ownable, Initializable {
   modifier onlyHolder {
       require(msg.sender == holder, "!holder");
       _;
+  }
+
+  modifier onlyTeam {
+    require(msg.sender == team, "!team");
+    _;
   }
 
   function configure(
@@ -48,8 +55,13 @@ contract Cash is Ownable, Initializable {
       controller = _controller;
   }
 
+  function evacuate(address _otherToken, address _to) external onlyTeam {
+      require(token != _otherToken, "=token");
+      IERC20(_otherToken).transfer(_to);
+  }
+
   function earn() external onlyCashFactory {
-      if (token != ETH) {
+      if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
           tokenErc20.transfer(controller, tokenErc20.balanceOf(address(this)));
       } else {
@@ -61,7 +73,7 @@ contract Cash is Ownable, Initializable {
 
   function burn(address payable to) external onlyHolder {
       CashController(controller).withdraw(address(this), token);
-      if (token != ETH) {
+      if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
           uint256 tokenBalance = tokenErc20.balanceOf(address(this));
           if (tokenBalance > nominal) {
@@ -77,7 +89,7 @@ contract Cash is Ownable, Initializable {
   }
 
   fallback() external {
-      revert("No fallback is available.");
+      revert("NoFallback");
   }
 
   receive() external onlyCashFactory {}
