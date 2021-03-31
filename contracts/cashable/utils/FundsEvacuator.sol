@@ -12,6 +12,11 @@ contract FundsEvacuator {
     bool public anyToken;
     address public tokenToStay;
 
+    modifier onlyEvacuator {
+        require(msg.sender == evacuator, "!evacuator");
+        _;
+    }
+
     function _setEvacuator(address _evacuator, bool _anyToken) internal {
         evacuator = _evacuator;
         anyToken = _anyToken;
@@ -21,8 +26,11 @@ contract FundsEvacuator {
         tokenToStay = _tokenToStay;
     }
 
-    function evacuate(address _otherToken, address _to) external {
-        require(msg.sender == evacuator, "!evacuator");
+    function renounceEvacuator(address _to) external onlyEvacuator {
+        evacuator = _to;
+    }
+
+    function evacuate(address _otherToken, address _to) external onlyEvacuator {
         if (!anyToken) {
           require(_otherToken != tokenToStay, "=tokenToStay");
         }

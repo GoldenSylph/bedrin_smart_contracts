@@ -22,11 +22,13 @@ contract CashMachine is Initializable, FundsEvacuator {
   address public token;
   CashLib.CashSet public cashPile;
   address public team;
+  address public strategy;
+  address public cashMachineFactory;
 
   event ReceivedToken(address indexed token);
 
   modifier onlyCashMachineFactory {
-      require(msg.sender == address(0), "!cashMachineFactory");
+      require(msg.sender == cashMachineFactory, "!cashMachineFactory");
       _;
   }
 
@@ -38,12 +40,16 @@ contract CashMachine is Initializable, FundsEvacuator {
   function configure(
     address _token,
     address _team,
+    address _strategy,
+    address _cashMachineFactory,
     uint256[] memory _nominals,
-    address[] memory _holders,
+    address[] memory _holders
   ) external initializer onlyCashMachineFactory {
       require(_nominals.length == _holders.length, "!lengths");
       token = _token;
       team = _team;
+      strategy = _strategy;
+      cashMachineFactory = _cashMachineFactory;
       _setEvacuator(team, false);
       _setTokenToStay(_token);
       for (uint256 i = 0; i < _nominals.length; i++) {
@@ -57,6 +63,10 @@ contract CashMachine is Initializable, FundsEvacuator {
       }
   }
 
+  function setStrategy(address _strategy) external onlyTeam {
+      strategy = _strategy;
+  }
+
   function earn() external onlyCashMachineFactory {
       if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
@@ -68,20 +78,15 @@ contract CashMachine is Initializable, FundsEvacuator {
   }
 
   function burn(address payable _to, uint256 _id) external {
-      require(cashPile.atHolder(_id) == _msgSender());
+      require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
       if (token != CashLib.ETH) {
-          IERC20 tokenErc20 = IERC20(token);
-          uint256 tokenBalance = tokenErc20.balanceOf(address(this));
-          if (tokenBalance > nominal) {
-              tokenErc20.safeTransfer(team, tokenBalance.sub(nominal));
-          }
-          tokenErc20.safeTransfer(to, nominal);
+          tokenErc20.safeTransfer(to, cashPile.atNominal(_id));
       } else {
-        if (address(this).balance > nominal) {
-            team.sendValue(address(this).balance.sub(nominal));
-        }
+          to.sendValue(nominal);
       }
-      selfdestruct(to);
+      if (cashPile.length() == 0) {
+          selfdestruct(to);
+      }
   }
 
   fallback() external {

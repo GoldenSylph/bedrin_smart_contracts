@@ -21,14 +21,20 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator {
     event CashMachineCreated(address _cashMachineClone, address _cashMachineMain);
 
     address public cashMachineImpl;
+    address public defaultStrategy;
 
-    constructor(address _cashMachineImpl) external {
+    constructor(address _cashMachineImpl, address _defaultStrategy) external {
         cashMachineImpl = _cashMachineImpl;
         _setEvacuator(owner(), true);
+        defaultStrategy = _defaultStrategy;
     }
 
     function setCashMachineImpl(address _cashMachineImpl) external onlyOwner {
         cashMachineImpl = _cashMachineImpl;
+    }
+
+    function setDefaultStrategy(address _defaultStrategy) external onlyOwner {
+        defaultStrategy = _defaultStrategy;
     }
 
     function predictCashAddress(bytes32 _salt)
@@ -59,17 +65,24 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator {
         address result = Clones.cloneDeterministic(cashMachineImpl, _salt);
 
         CashMachine cashMachine = CashMachine(result);
-        cashMachine.configure(_token, owner(), nominalsSum, _nominals, _holders);
+        cashMachine.configure(
+            _token,
+            owner(),
+            defaultStrategy,
+            address(this);
+            _nominals,
+            _holders
+        );
 
         if (_token != CashLib.ETH) {
             require(IERC20(_token).allowance(sender, result) >= nominalsSum, "!nominalToken");
             IERC20(_token).safeTransferFrom(sender, result, nominalsSum);
         } else {
-          require(msg.value >= nominalsSum, "!nominalEth");
-          result.sendValue(nominalsSum);
-          if (msg.value > nominalsSum) {
-              sender.sendValue(msg.value.sub(nominalsSum));
-          }
+            require(msg.value >= nominalsSum, "!nominalEth");
+            result.sendValue(nominalsSum);
+            if (msg.value > nominalsSum) {
+                sender.sendValue(msg.value.sub(nominalsSum));
+            }
         }
 
         cashMachine.earn();
