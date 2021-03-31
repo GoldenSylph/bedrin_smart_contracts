@@ -9,63 +9,66 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-import "./CashController.sol";
 import "./lib/CashLib.sol";
+import "./utils/FundsEvacuator.sol";
 
-
-contract Cash is Ownable, Initializable {
+contract CashMachine is Initializable, FundsEvacuator {
 
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
+  using CashLib.CashSet for CashLib.Cash;
 
   address public token;
-  address public nominal;
+  CashLib.CashSet public cashPile;
   address public team;
-  address public controller;
 
   event ReceivedToken(address indexed token);
 
-  modifier onlyCashFactory {
-      require(msg.sender == address(0), "!cashFactory");
+  modifier onlyCashMachineFactory {
+      require(msg.sender == address(0), "!cashMachineFactory");
       _;
   }
 
   modifier onlyTeam {
-    require(msg.sender == team, "!team");
-    _;
+      require(msg.sender == team, "!team");
+      _;
   }
 
   function configure(
     address _token,
-    address _nominal,
     address _team,
-    address _controller
-  ) external initializer onlyCashFactory {
+    uint256[] memory _nominals,
+    address[] memory _holders,
+  ) external initializer onlyCashMachineFactory {
+      require(_nominals.length == _holders.length, "!lengths");
       token = _token;
-      nominal = _nominal;
       team = _team;
-      controller = _controller;
+      _setEvacuator(team, false);
+      _setTokenToStay(_token);
+      for (uint256 i = 0; i < _nominals.length; i++) {
+          cashPile.add(
+            CashLib.Cash({
+                id: i,
+                holder: _holders[i],
+                nominal: _nominals[i]
+            })
+          );
+      }
   }
 
-  function evacuate(address _otherToken, address _to) external onlyTeam {
-      require(token != _otherToken, "=token");
-      IERC20(_otherToken).transfer(_to);
-  }
-
-  function earn() external onlyCashFactory {
+  function earn() external onlyCashMachineFactory {
       if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
-          tokenErc20.transfer(controller, tokenErc20.balanceOf(address(this)));
+          tokenErc20.safeTransfer(strategy, tokenErc20.balanceOf(address(this)));
       } else {
-          controller.sendValue(address(this).balance);
+          strategy.sendValue(address(this).balance);
       }
-      CashController(controller).earn(address(this));
       emit ReceivedToken(token);
   }
 
-  function burn(address payable to) external onlyOwner {
-      CashController(controller).withdraw(address(this));
+  function burn(address payable _to, uint256 _id) external {
+      require(cashPile.atHolder(_id) == _msgSender());
       if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
           uint256 tokenBalance = tokenErc20.balanceOf(address(this));
@@ -85,6 +88,6 @@ contract Cash is Ownable, Initializable {
       revert("NoFallback");
   }
 
-  receive() external onlyCashFactory {}
+  receive() external onlyCashMachineFactory {}
 
 }
