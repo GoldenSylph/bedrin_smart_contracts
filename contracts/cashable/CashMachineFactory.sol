@@ -8,11 +8,12 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/introspection/ERC165.sol"
 
 import "./CashMachine.sol";
 import "./utils/FundsEvacuator.sol";
 
-contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator {
+contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 {
 
     using SafeERC20 for IERC20;
     using Address for address;
@@ -27,6 +28,7 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator {
         cashMachineImpl = _cashMachineImpl;
         _setEvacuator(owner(), true);
         defaultStrategy = _defaultStrategy;
+        _registerInterface(...);
     }
 
     function setCashMachineImpl(address _cashMachineImpl) external onlyOwner {

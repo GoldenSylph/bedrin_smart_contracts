@@ -8,11 +8,13 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/introspection/IERC165.sol"
+import "@openzeppelin/contracts/introspection/ERC165.sol"
 
 import "./lib/CashLib.sol";
 import "./utils/FundsEvacuator.sol";
 
-contract CashMachine is Initializable, FundsEvacuator {
+contract CashMachine is Initializable, FundsEvacuator, ERC165  {
 
   using SafeERC20 for IERC20;
   using Address for address;
@@ -29,7 +31,8 @@ contract CashMachine is Initializable, FundsEvacuator {
   event Operation(address indexed _token, uint256 indexed _amount, bool earnOrHarvest);
 
   modifier onlyCashMachineFactory {
-      require(msg.sender == cashMachineFactory, "!cashMachineFactory");
+      require(msg.sender.isContract(), "!contract");
+      require(IERC165(msg.sender).supportsInterface(...), "!cashMachineFactory");
       _;
   }
 
@@ -55,6 +58,7 @@ contract CashMachine is Initializable, FundsEvacuator {
       sumOfNominals = _sumOfNominals;
       _setEvacuator(team, false);
       _setTokenToStay(_token);
+      _registerInterface(...);
       for (uint256 i = 0; i < _nominals.length; i++) {
           cashPile.add(
             CashLib.Cash({
