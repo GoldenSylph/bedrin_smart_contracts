@@ -24,8 +24,9 @@ contract CashMachine is Initializable, FundsEvacuator {
   address public team;
   address public strategy;
   address public cashMachineFactory;
+  uint256 public sumOfNominals;
 
-  event ReceivedToken(address indexed token);
+  event Operation(address indexed _token, uint256 indexed _amount, bool earnOrHarvest);
 
   modifier onlyCashMachineFactory {
       require(msg.sender == cashMachineFactory, "!cashMachineFactory");
@@ -42,6 +43,7 @@ contract CashMachine is Initializable, FundsEvacuator {
     address _team,
     address _strategy,
     address _cashMachineFactory,
+    uint256 _sumOfNominals;
     uint256[] memory _nominals,
     address[] memory _holders
   ) external initializer onlyCashMachineFactory {
@@ -50,6 +52,7 @@ contract CashMachine is Initializable, FundsEvacuator {
       team = _team;
       strategy = _strategy;
       cashMachineFactory = _cashMachineFactory;
+      sumOfNominals = _sumOfNominals;
       _setEvacuator(team, false);
       _setTokenToStay(_token);
       for (uint256 i = 0; i < _nominals.length; i++) {
@@ -67,25 +70,57 @@ contract CashMachine is Initializable, FundsEvacuator {
       strategy = _strategy;
   }
 
+  function getRevenue() public view returns(uint256 revenue) {
+      if (token != CashLib.ETH) {
+          revenue = IERC20(token).balanceOf(address(this)).trySub(sumOfNominals);
+      } else {
+          revenue = address(this).balance.trySub(sumOfNominals);
+      }
+  }
+
+  function harvest() external onlyTeam {
+      uint256 revenue = getRevenue();
+      if (revenue > 0) {
+        if (token != CashLib.ETH) {
+            IERC20(token).safeTransfer(team, revenue);
+        } else {
+            team.sendValue(revenue);
+        }
+      }
+      emit Operation(token, revenue, false);
+  }
+
   function earn() external onlyCashMachineFactory {
+      uint256 amount;
       if (token != CashLib.ETH) {
           IERC20 tokenErc20 = IERC20(token);
-          tokenErc20.safeTransfer(strategy, tokenErc20.balanceOf(address(this)));
+          amount = tokenErc20.balanceOf(address(this));
+          tokenErc20.safeTransfer(strategy, amount);
       } else {
-          strategy.sendValue(address(this).balance);
+          amount = address(this).balance;
+          strategy.sendValue(amount);
       }
-      emit ReceivedToken(token);
+      emit Operation(token, amount, true);
   }
 
   function burn(address payable _to, uint256 _id) external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
+      uint256 nominal = cashPile.atNominal(_id);
+      IERC20 tokenErc20 = IERC20(token);
       if (token != CashLib.ETH) {
-          tokenErc20.safeTransfer(to, cashPile.atNominal(_id));
+          tokenErc20.safeTransfer(to, nominal);
       } else {
           to.sendValue(nominal);
       }
       if (cashPile.length() == 0) {
+          if (token != CashLib.ETH) {
+              tokenErc20.safeTransfer(team, tokenErc20.balanceOf(address(this)));
+          } else {
+              team.sendValue(address(this).balance);
+          }
           selfdestruct(to);
+      } else {
+          sumOfNominals -= nominal;
       }
   }
 

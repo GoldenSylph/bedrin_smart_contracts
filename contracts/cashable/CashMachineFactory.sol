@@ -57,9 +57,9 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator {
         uint256 nominalsSum = 0;
 
         for (uint256 i; i < _holders.length; i++) {
-          require(sender != _holders[i], "holder==sender");
-          require(!_holders[i].isContract(), "holderIsContract");
-          nominalsSum += _nominals[i];
+            require(sender != _holders[i], "holder==sender");
+            require(!_holders[i].isContract(), "holderIsContract");
+            nominalsSum += _nominals[i];
         }
 
         address result = Clones.cloneDeterministic(cashMachineImpl, _salt);
@@ -75,14 +75,10 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator {
         );
 
         if (_token != CashLib.ETH) {
-            require(IERC20(_token).allowance(sender, result) >= nominalsSum, "!nominalToken");
             IERC20(_token).safeTransferFrom(sender, result, nominalsSum);
         } else {
             require(msg.value >= nominalsSum, "!nominalEth");
             result.sendValue(nominalsSum);
-            if (msg.value > nominalsSum) {
-                sender.sendValue(msg.value.sub(nominalsSum));
-            }
         }
 
         cashMachine.earn();
