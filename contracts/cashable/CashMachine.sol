@@ -26,13 +26,18 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
   address public team;
   address public strategy;
   address public cashMachineFactory;
-  uint256 public sumOfNominals;
 
   event Operation(address indexed _token, uint256 indexed _amount, bool earnOrHarvest);
 
+  modifier onlyCashMachineFactoryOrSelf {
+      require(msg.sender.isContract(), "!contract");
+      require(msg.sender == address(this) || IERC165(msg.sender).supportsInterface(CashLib.FACTORY_ERC165), "!cashMachineFactoryOrSelf");
+      _;
+  }
+
   modifier onlyCashMachineFactory {
       require(msg.sender.isContract(), "!contract");
-      require(IERC165(msg.sender).supportsInterface(...), "!cashMachineFactory");
+      require(IERC165(msg.sender).supportsInterface(CashLib.FACTORY_ERC165), "!cashMachineFactory");
       _;
   }
 
@@ -41,12 +46,15 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
       _;
   }
 
+  function cashMachineName() external pure returns(string memory) {
+      return "Cash Machine V1";
+  }
+
   function configure(
     address _token,
     address _team,
     address _strategy,
     address _cashMachineFactory,
-    uint256 _sumOfNominals;
     uint256[] memory _nominals,
     address[] memory _holders
   ) external initializer onlyCashMachineFactory {
@@ -55,10 +63,8 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
       team = _team;
       strategy = _strategy;
       cashMachineFactory = _cashMachineFactory;
-      sumOfNominals = _sumOfNominals;
       _setEvacuator(team, false);
       _setTokenToStay(_token);
-      _registerInterface(...);
       for (uint256 i = 0; i < _nominals.length; i++) {
           cashPile.add(
             CashLib.Cash({
@@ -74,58 +80,43 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
       strategy = _strategy;
   }
 
-  function getRevenue() public view returns(uint256 revenue) {
-      if (token != CashLib.ETH) {
-          revenue = IERC20(token).balanceOf(address(this)).trySub(sumOfNominals);
-      } else {
-          revenue = address(this).balance.trySub(sumOfNominals);
-      }
-  }
-
-  function harvest() external onlyTeam {
-      uint256 revenue = getRevenue();
-      if (revenue > 0) {
-        if (token != CashLib.ETH) {
-            IERC20(token).safeTransfer(team, revenue);
-        } else {
-            team.sendValue(revenue);
-        }
-      }
-      emit Operation(token, revenue, false);
-  }
-
-  function earn() external onlyCashMachineFactory {
-      uint256 amount;
-      if (token != CashLib.ETH) {
-          IERC20 tokenErc20 = IERC20(token);
-          amount = tokenErc20.balanceOf(address(this));
-          tokenErc20.safeTransfer(strategy, amount);
-      } else {
-          amount = address(this).balance;
-          strategy.sendValue(amount);
-      }
-      emit Operation(token, amount, true);
-  }
+  // function earn() public onlyCashMachineFactoryOrSelf {
+  //     uint256 amount;
+  //     if (token != CashLib.ETH) {
+  //         IERC20 tokenErc20 = IERC20(token);
+  //         amount = tokenErc20.balanceOf(address(this));
+  //         tokenErc20.safeTransfer(strategy, amount);
+  //     } else {
+  //         amount = address(this).balance;
+  //         strategy.sendValue(amount);
+  //     }
+  //     IStrategy(strategy).earn(address(this), amount);
+  //     emit Operation(token, amount, true);
+  // }
 
   function burn(address payable _to, uint256 _id) external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
       uint256 nominal = cashPile.atNominal(_id);
+      IStrategy(strategy).withdraw(token, nominal);
+
       IERC20 tokenErc20 = IERC20(token);
       if (token != CashLib.ETH) {
           tokenErc20.safeTransfer(to, nominal);
       } else {
           to.sendValue(nominal);
       }
+      require(cashPile.removeAt(_id), '!removed');
       if (cashPile.length() == 0) {
           if (token != CashLib.ETH) {
               tokenErc20.safeTransfer(team, tokenErc20.balanceOf(address(this)));
-          } else {
-              team.sendValue(address(this).balance);
           }
-          selfdestruct(to);
-      } else {
-          sumOfNominals -= nominal;
+          selfdestruct(team);
       }
+  }
+
+  function supportsInterface(bytes4 interfaceId) public view override returns(bool) {
+      return interfaceId == 0x01ffc9a7
+        || interfaceId == CashLib.MACHINE_ERC165;
   }
 
   fallback() external {

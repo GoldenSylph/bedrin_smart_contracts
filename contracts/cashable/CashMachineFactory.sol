@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/introspection/ERC165.sol"
 
 import "./CashMachine.sol";
+import "./lib/CashLib.sol";
 import "./utils/FundsEvacuator.sol";
 
 contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 {
@@ -19,16 +20,25 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 
     using Address for address;
     using SafeMath for uint256;
 
-    event CashMachineCreated(address _cashMachineClone, address _cashMachineMain);
 
     address public cashMachineImpl;
     address public defaultStrategy;
+
+    event CashMachineCreated(address _cashMachineClone, address _cashMachineMain);
 
     constructor(address _cashMachineImpl, address _defaultStrategy) external {
         cashMachineImpl = _cashMachineImpl;
         _setEvacuator(owner(), true);
         defaultStrategy = _defaultStrategy;
-        _registerInterface(...);
+    }
+
+    function cashMachineFactoryName() external pure returns (string memory) {
+        return "Cash Machine Factory V1";
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override returns(bool) {
+        return interfaceId == 0x01ffc9a7
+          || interfaceId == CashLib.FACTORY_ERC165;
     }
 
     function setCashMachineImpl(address _cashMachineImpl) external onlyOwner {
@@ -47,6 +57,10 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 
         return Clones.predictDeterministicAddress(cashMachineImpl, _salt);
     }
 
+    function getApprovalAddress() external view returns(address) {
+        return defaultStrategy;
+    }
+
     function mintCash(
         bytes32 _salt,
         address _token,
@@ -60,7 +74,7 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 
 
         for (uint256 i; i < _holders.length; i++) {
             require(sender != _holders[i], "holder==sender");
-            require(!_holders[i].isContract(), "holderIsContract");
+            require(!_holders[i].isContract(), "holderContract");
             nominalsSum += _nominals[i];
         }
 
@@ -77,13 +91,13 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 
         );
 
         if (_token != CashLib.ETH) {
-            IERC20(_token).safeTransferFrom(sender, result, nominalsSum);
+            IERC20(_token).safeTransferFrom(sender, defaultStrategy, nominalsSum);
         } else {
             require(msg.value >= nominalsSum, "!nominalEth");
-            result.sendValue(nominalsSum);
+            defaultStrategy.sendValue(nominalsSum);
         }
 
-        cashMachine.earn();
+        IStrategy(defaultStrategy).register(result, _token, nominalsSum);
         emit CashMachineCreated(result, cashMachineImpl);
     }
 

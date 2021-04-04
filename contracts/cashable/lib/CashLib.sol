@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 library CashLib is EnumerableSet {
 
     address public constant ETH = address(0);
+    bytes4 public constant MACHINE_ERC165 = 0xecbf4233; // bytes4(keccak256('cashMachineName()'));
+    bytes4 public constant FACTORY_ERC165 = 0xd77f5a33; //ERC165: bytes4(keccak256('cashMachineFactoryName()'));
 
     struct Cash {
         uint256 id;
@@ -36,6 +38,16 @@ library CashLib is EnumerableSet {
      */
     function remove(CashSet storage set, Cash value) internal returns(bool) {
         return _remove(set._inner, abi.encode(value.id, value.holder, value.nominal));
+    }
+
+    /**
+     * @dev Removes a value from a set by index. O(1).
+     *
+     * Returns true if the value was removed from the set, that is if it was
+     * present.
+     */
+    function removeAt(CashSet storage set, uint256 index) internal returns(bool) {
+        return _remove(set._inner, _at(set._inner, index));
     }
 
     /**
