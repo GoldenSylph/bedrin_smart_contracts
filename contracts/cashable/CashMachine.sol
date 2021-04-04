@@ -29,12 +29,6 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
 
   event Operation(address indexed _token, uint256 indexed _amount, bool earnOrHarvest);
 
-  modifier onlyCashMachineFactoryOrSelf {
-      require(msg.sender.isContract(), "!contract");
-      require(msg.sender == address(this) || IERC165(msg.sender).supportsInterface(CashLib.FACTORY_ERC165), "!cashMachineFactoryOrSelf");
-      _;
-  }
-
   modifier onlyCashMachineFactory {
       require(msg.sender.isContract(), "!contract");
       require(IERC165(msg.sender).supportsInterface(CashLib.FACTORY_ERC165), "!cashMachineFactory");
@@ -51,12 +45,12 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
   }
 
   function configure(
-    address _token,
-    address _team,
-    address _strategy,
-    address _cashMachineFactory,
-    uint256[] memory _nominals,
-    address[] memory _holders
+      address _token,
+      address _team,
+      address _strategy,
+      address _cashMachineFactory,
+      uint256[] memory _nominals,
+      address[] memory _holders
   ) external initializer onlyCashMachineFactory {
       require(_nominals.length == _holders.length, "!lengths");
       token = _token;
@@ -79,20 +73,6 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
   function setStrategy(address _strategy) external onlyTeam {
       strategy = _strategy;
   }
-
-  // function earn() public onlyCashMachineFactoryOrSelf {
-  //     uint256 amount;
-  //     if (token != CashLib.ETH) {
-  //         IERC20 tokenErc20 = IERC20(token);
-  //         amount = tokenErc20.balanceOf(address(this));
-  //         tokenErc20.safeTransfer(strategy, amount);
-  //     } else {
-  //         amount = address(this).balance;
-  //         strategy.sendValue(amount);
-  //     }
-  //     IStrategy(strategy).earn(address(this), amount);
-  //     emit Operation(token, amount, true);
-  // }
 
   function burn(address payable _to, uint256 _id) external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
@@ -123,6 +103,6 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
       revert("NoFallback");
   }
 
-  receive() external onlyCashMachineFactory {}
+  receive() external {}
 
 }

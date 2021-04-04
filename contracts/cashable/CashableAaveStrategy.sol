@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "./lib/CashLib.sol";
 import "./Cash.sol";
 
-contract CashAaveStrategy is Ownable, IStrategy {
+contract CashableAaveStrategy is Ownable, ICashableStrategy {
 
     using SafeERC20 for IERC20;
     using Address for address;
