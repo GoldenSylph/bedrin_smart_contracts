@@ -3,5 +3,6 @@ pragma solidity =0.8.3;
 
 
 interface ICashMachine {
-
+  function burn(address payable _to, uint256 _id) external;
+  function cashMachineName() external pure returns(string memory);
 }

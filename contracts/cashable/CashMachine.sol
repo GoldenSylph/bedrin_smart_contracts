@@ -13,8 +13,9 @@ import "@openzeppelin/contracts/introspection/ERC165.sol"
 
 import "./lib/CashLib.sol";
 import "./utils/FundsEvacuator.sol";
+import "./interfaces/ICashMachine.sol";
 
-contract CashMachine is Initializable, FundsEvacuator, ERC165  {
+contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
 
   using SafeERC20 for IERC20;
   using Address for address;
@@ -70,14 +71,10 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
       }
   }
 
-  function setStrategy(address _strategy) external onlyTeam {
-      strategy = _strategy;
-  }
-
   function burn(address payable _to, uint256 _id) external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
       uint256 nominal = cashPile.atNominal(_id);
-      IStrategy(strategy).withdraw(token, nominal);
+      IStrategy(strategy).withdraw(address(this), token, nominal);
 
       IERC20 tokenErc20 = IERC20(token);
       if (token != CashLib.ETH) {
@@ -86,6 +83,8 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165  {
           to.sendValue(nominal);
       }
       require(cashPile.removeAt(_id), '!removed');
+
+      // impossible case, but if some fund are stuck in there - they are sent to team address, to further return or reinvest
       if (cashPile.length() == 0) {
           if (token != CashLib.ETH) {
               tokenErc20.safeTransfer(team, tokenErc20.balanceOf(address(this)));

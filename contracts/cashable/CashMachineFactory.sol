@@ -13,13 +13,13 @@ import "@openzeppelin/contracts/introspection/ERC165.sol"
 import "./CashMachine.sol";
 import "./lib/CashLib.sol";
 import "./utils/FundsEvacuator.sol";
+import "./interfaces/ICashMachineFactory.sol";
 
-contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 {
+contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165, ICashMachineFactory {
 
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
-
 
     address public cashMachineImpl;
     address public defaultStrategy;
@@ -32,7 +32,7 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165 
         defaultStrategy = _defaultStrategy;
     }
 
-    function cashMachineFactoryName() external pure returns (string memory) {
+    function cashMachineFactoryName() external pure returns(string memory) {
         return "Cash Machine Factory V1";
     }
 
