@@ -74,7 +74,7 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
   function burn(address payable _to, uint256 _id) external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
       uint256 nominal = cashPile.atNominal(_id);
-      IStrategy(strategy).withdraw(address(this), token, nominal);
+      IStrategy(strategy).withdraw(address(this), nominal);
 
       IERC20 tokenErc20 = IERC20(token);
       if (token != CashLib.ETH) {
