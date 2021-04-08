@@ -125,7 +125,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         if (token != CashLib.ETH) {
             IERC20(token).safeTransfer(sender, convertedAmount);
         } else {
-            sender.sendValue(volume);
+            sender.sendValue(convertedAmount);
         }
 
         (,volumes[sender]) = volume.trySub(_amount);
