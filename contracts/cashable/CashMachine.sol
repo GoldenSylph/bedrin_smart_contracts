@@ -31,18 +31,8 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
   event Operation(address indexed _token, uint256 indexed _amount, bool earnOrHarvest);
 
   modifier onlyCashMachineFactory {
-      require(msg.sender.isContract(), "!contract");
-      require(IERC165(msg.sender).supportsInterface(CashLib.FACTORY_ERC165), "!cashMachineFactory");
+      require(_msgSender() == cashMachineFactory, "!cashMachineFactory");
       _;
-  }
-
-  modifier onlyTeam {
-      require(msg.sender == team, "!team");
-      _;
-  }
-
-  function cashMachineName() external pure returns(string memory) {
-      return "Cash Machine V1";
   }
 
   function configure(
@@ -84,10 +74,13 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
       }
       require(cashPile.removeAt(_id), '!removed');
 
-      // impossible case, but if some fund are stuck in there - they are sent to team address, to further return or reinvest
+      // if some funds are stuck in there - they are sent to team address, to further return or reinvest
       if (cashPile.length() == 0) {
           if (token != CashLib.ETH) {
-              tokenErc20.safeTransfer(team, tokenErc20.balanceOf(address(this)));
+              uint256 balance = tokenErc20.balanceOf(address(this));
+              if (balance > 0) {
+                  tokenErc20.safeTransfer(team, balance);
+              }
           }
           selfdestruct(team);
       }

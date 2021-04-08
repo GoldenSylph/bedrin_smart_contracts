@@ -4,6 +4,5 @@ pragma experimental ABIEncoderV2;
 
 
 interface ICashMachine {
-  function burn(address payable _to, uint256 _id) external;
-  function cashMachineName() external pure returns(string memory);
+    function burn(address payable _to, uint256 _id) external;
 }

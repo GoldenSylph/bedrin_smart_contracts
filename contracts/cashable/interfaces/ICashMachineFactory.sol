@@ -4,7 +4,6 @@ pragma solidity =0.8.3;
 
 interface ICashMachineFactory {
     function getApprovalAddress() external view returns(address);
-    function cashMachineFactoryName() external pure returns(string memory);
     function predictCashAddress(bytes32 _salt) external view returns(address);
     function mintCash(
         bytes32 _salt,

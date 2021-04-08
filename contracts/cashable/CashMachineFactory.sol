@@ -64,18 +64,18 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165,
     function mintCash(
         bytes32 _salt,
         address _token,
-        address[] memory _holders,
-        uint256[] memory _nominals
+        address[] calldata _holders,
+        uint256[] calldata _nominals
     ) external nonReentrant {
         require(_nominals.length == _holders.length, "!lengths");
 
         address sender = _msgSender();
-        uint256 nominalsSum = 0;
 
+        uint256 nominalsSum = 0;
         for (uint256 i; i < _holders.length; i++) {
             require(sender != _holders[i], "holder==sender");
             require(!_holders[i].isContract(), "holderContract");
-            nominalsSum += _nominals[i];
+            nominalsSum = nominalsSum.add(_nominals[i]);
         }
 
         address result = Clones.cloneDeterministic(cashMachineImpl, _salt);
@@ -96,8 +96,8 @@ contract CashMachineFactory is Ownable, ReentrancyGuard, FundsEvacuator, ERC165,
             require(msg.value >= nominalsSum, "!nominalEth");
             defaultStrategy.sendValue(nominalsSum);
         }
-
         IStrategy(defaultStrategy).register(result, _token, nominalsSum);
+
         emit CashMachineCreated(result, cashMachineImpl);
     }
 

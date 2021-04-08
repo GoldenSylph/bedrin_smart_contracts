@@ -4,7 +4,6 @@ pragma experimental ABIEncoderV2;
 
 
 interface ICashableStrategy {
-  function register(address _cashMachine, address _token, uint256 _amount) external;
-  function withdraw(address _cashMachine, address _token, uint256 _amount) external;
-  function cashStrategyName() external pure returns(string memory);
+    function register(address _cashMachine, address _token, uint256 _amount) external;
+    function withdraw(uint256 _amount) external;
 }
