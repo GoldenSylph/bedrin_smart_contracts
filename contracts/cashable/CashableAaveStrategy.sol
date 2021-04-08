@@ -117,7 +117,9 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         address token = tokens[sender];
 
         mainAToken.approve(address(aaveLendingPool), _amount);
-        aaveLendingPool.withdraw(address(mainToken), _amount, address(this));
+
+        address mainTokenAddress = address(mainToken);
+        aaveLendingPool.withdraw(mainTokenAddress, _amount, address(this));
 
         uint256 convertedAmount = _convertUniswap(mainTokenAddress, token, _amount);
         if (token != CashLib.ETH) {
