@@ -31,7 +31,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
     // cash machine => volume
     mapping(address => uint256) public volumes;
 
-    uint256 public totalValue;
+    uint256 public totalAmountOfMainTokens;
 
     IERC20 public mainToken;
     IERC20 public mainAToken;
@@ -46,6 +46,12 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
 
     modifier onlyCashMachineFactory {
         require(_msgSender() == cashMachineFactory, "!senderCashMachineFactory");
+        _;
+    }
+
+    modifier onlyOwnerOrSelf {
+        address sender = _msgSender();
+        require(sender == owner() || sender == address(this), "!owner|self");
         _;
     }
 
@@ -67,14 +73,18 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         cashMachineFactory = _cashMachineFactory;
     }
 
+    function _getAmountOut(address _from, address _to, uint256 _amount) internal returns(uint256) {
+        address[] memory path = new address[](2);
+        path[0] = _from;
+        path[1] = _to;
+        uint256[] _amountsOut = UniswapV2Router02.getAmountsOut(_amount, path);
+        return _amountsOut[1];
+    }
+
     function _convertUniswap(address _tokenIn, address _tokenOut, uint256 _amount) internal returns(uint256 amountOut) {
         if (_tokenIn != _tokenOut) {
             require(IERC20(_token).approve(address(uniswapRouter), _amount), '!uniswapApprove');
-            address[] memory path = new address[](2);
-            path[0] = _tokenIn;
-            path[1] = _tokenOut;
-            uint256[] _amountsOut = UniswapV2Router02.getAmountsOut(_amount, path);
-            amountOut = _amountsOut[1];
+            amountOut = _getAmountOut(_tokenIn, _tokenOut, _amount);
             if (_tokenIn != CashLib.ETH && _tokenOut == CashLib.ETH) {
                 UniswapV2Router02.swapExactTokensForETH(_amount, amountOut, path, msg.sender, block.timestamp);
             } else if (_tokenIn == CashLib.ETH && _tokenOut != CashLib.ETH) {
@@ -95,16 +105,16 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         tokens[_cashMachine] = _token;
         volumes[_cashMachine] = _amount;
         address mainTokenAddress = address(mainToken);
-        uint256 convertedAmount = _convertUniswap(_token, mainTokenAddress, _amount);
-        mainToken.approve(address(aaveLendingPool), convertedAmount);
-        aaveLendingPool.deposit(mainTokenAddress, convertedAmount, address(this), AAVE_REFERRAL_CODE);
-        totalValue = totalValue.add(convertedAmount);
+        uint256 amountInMainTokens = _convertUniswap(_token, mainTokenAddress, _amount);
+        mainToken.approve(address(aaveLendingPool), amountInMainTokens);
+        aaveLendingPool.deposit(mainTokenAddress, amountInMainTokens, address(this), AAVE_REFERRAL_CODE);
+        totalAmountOfMainTokens = totalAmountOfMainTokens.add(amountInMainTokens);
     }
 
-    function harvest() public onlyOwner {
+    function harvest() public onlyOwnerOrSelf {
         uint256 aMainTokenBalance = mainAToken.balanceOf(address(this));
         if (aMainTokenBalance > totalValue) {
-            mainAToken.safeTransfer(aMainTokenBalance.sub(totalValue));
+            mainAToken.safeTransfer(team, aMainTokenBalance.sub(totalAmountOfMainTokens));
         }
     }
 
@@ -115,24 +125,27 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         address sender = _msgSender();
         uint256 volume = volumes[sender];
         address token = tokens[sender];
-
-        mainAToken.approve(address(aaveLendingPool), _amount);
-
         address mainTokenAddress = address(mainToken);
-        aaveLendingPool.withdraw(mainTokenAddress, _amount, address(this));
 
-        uint256 convertedAmount = _convertUniswap(mainTokenAddress, token, _amount);
+        uint256 amountInMainTokens = _getAmountOut(token, mainTokenAddress, _amount);
+
+        mainAToken.approve(address(aaveLendingPool), amountInMainTokens);
+        aaveLendingPool.withdraw(mainTokenAddress, amountInMainTokens, address(this));
+
+        uint256 amountInTokens = _convertUniswap(mainTokenAddress, token, amountInMainTokens);
+
         if (token != CashLib.ETH) {
-            IERC20(token).safeTransfer(sender, convertedAmount);
+            IERC20(token).safeTransfer(sender, amountInTokens);
         } else {
-            sender.sendValue(convertedAmount);
+            sender.sendValue(amountInTokens);
         }
 
-        (,volumes[sender]) = volume.trySub(_amount);
+        (,totalAmountOfMainTokens) = totalAmountOfMainTokens.trySub(amountInMainTokens);
+
+        (,volumes[sender]) = volume.trySub(amountInTokens);
         if (volumes[sender] == 0) {
             revokeRole(CASH_MACHINE_CLONE_ROLE, sender);
         }
-        (,totalValue) = totalValue.trySub(_amount);
         harvest();
     }
 
