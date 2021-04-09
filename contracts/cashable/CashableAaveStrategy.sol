@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: agpl-3.0
 pragma solidity =0.8.3;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Initializable.sol";
@@ -13,7 +14,7 @@ import "@uniswap/v2-periphery/contracts/UniswapV2Router02.sol";
 
 import "./lib/CashLib.sol";
 import "./CashMachine.sol";
-import "./interfaces/third_party/ILendingPool.sol";
+import "./interfaces/third_party/aave/ILendingPool.sol";
 
 contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable, ICashableStrategy {
 
@@ -114,7 +115,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
     function harvest() public onlyOwnerOrSelf {
         uint256 aMainTokenBalance = mainAToken.balanceOf(address(this));
         if (aMainTokenBalance > totalValue) {
-            mainAToken.safeTransfer(team, aMainTokenBalance.sub(totalAmountOfMainTokens));
+            mainAToken.safeTransfer(owner(), aMainTokenBalance.sub(totalAmountOfMainTokens));
         }
     }
 

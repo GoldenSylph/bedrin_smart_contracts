@@ -7,7 +7,7 @@ source ./scripts/utils/generate_truffle_config.sh
 rm -rf ./build
 
 # build our contracts
-generate_truffle_config "0.6.3" ".\/contracts"
+generate_truffle_config "0.8.3" ".\/contracts"
 truffle compile
 
 # build third party contracts

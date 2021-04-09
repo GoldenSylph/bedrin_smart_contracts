@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: agpl-3.0
 pragma solidity =0.8.3;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -64,7 +65,7 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
   function burn(address payable _to, uint256 _id) external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
       uint256 nominal = cashPile.atNominal(_id);
-      IStrategy(strategy).withdraw(address(this), nominal);
+      IStrategy(strategy).withdraw(nominal);
 
       IERC20 tokenErc20 = IERC20(token);
       if (token != CashLib.ETH) {

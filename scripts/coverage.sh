@@ -12,7 +12,7 @@ mkdir -p build/contracts/
 ./scripts/third_party_build.sh
 
 # generate truffle config for coverage
-generate_truffle_config "0.6.3" ".\/contracts"
+generate_truffle_config "0.8.3" ".\/contracts"
 
 #run coverage
 if [[ $1 = "file" ]]; then

@@ -2,7 +2,7 @@
 export CONFIG_NAME="./truffle-config.js"
 source ./scripts/utils/generate_truffle_config.sh
 
-generate_truffle_config "0.6.3" ".\/contracts"
+generate_truffle_config "0.8.3" ".\/contracts"
 
 if [ -z $1 ]; then
   echo "Nothing to verify..."
