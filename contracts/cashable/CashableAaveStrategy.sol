@@ -172,8 +172,8 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         emit Withdraw(sender, amountInTokens, amountInMainTokens);
     }
 
-    function supportsInterface(bytes4 interfaceId) public pure override returns(bool) {
-        return interfaceId == 0x01ffc9a7
+    function supportsInterface(bytes4 interfaceId) public view override returns(bool) {
+        return super.supportsInterface(interfaceId)
           || interfaceId == CashLib.CASHABLE_AAVE_STRATEGY_ERC165;
     }
 
