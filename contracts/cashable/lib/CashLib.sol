@@ -11,8 +11,9 @@ library CashLib {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    bytes4 public constant MACHINE_ERC165 = 0xecbf4233; // bytes4(keccak256('cashMachineName()'));
-    bytes4 public constant FACTORY_ERC165 = 0xd77f5a33; //ERC165: bytes4(keccak256('cashMachineFactoryName()'));
+    bytes4 public constant CASHABLE_AAVE_STRATEGY_ERC165 = 0x32b7089b;
+    bytes4 public constant MACHINE_ERC165 = 0x9dc29fac;
+    bytes4 public constant FACTORY_ERC165 = 0xd821a987;
 
     struct Cash {
         uint256 id;

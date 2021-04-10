@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
@@ -169,6 +170,11 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         }
         harvest();
         emit Withdraw(sender, amountInTokens, amountInMainTokens);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public pure override returns(bool) {
+        return interfaceId == 0x01ffc9a7
+          || interfaceId == CashLib.CASHABLE_AAVE_STRATEGY_ERC165;
     }
 
     fallback() external {
