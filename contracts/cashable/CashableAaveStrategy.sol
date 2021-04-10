@@ -42,6 +42,18 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
     ILendingPool public aaveLendingPool;
     address public cashMachineFactory;
 
+    event Harvest(uint256 indexed _revenue);
+    event Register(
+        address indexed _cashMachine,
+        uint256 indexed _sumOfNominals,
+        uint256 indexed _sumOfNominalsInMainTokens
+    );
+    event Withdraw(
+        address indexed _cashMachine,
+        uint256 indexed _nominal,
+        uint256 indexed _nominalInMainTokens
+    );
+
     modifier onlyCashMachineClone {
         require(hasRole(CASH_MACHINE_CLONE_ROLE, _msgSender()), "!senderCashMachine");
         _;
@@ -114,12 +126,15 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         mainToken.approve(address(aaveLendingPool), amountInMainTokens);
         aaveLendingPool.deposit(mainTokenAddress, amountInMainTokens, address(this), AAVE_REFERRAL_CODE);
         totalAmountOfMainTokens = totalAmountOfMainTokens.add(amountInMainTokens);
+        emit Register(_cashMachine, _amount, amountInMainTokens);
     }
 
     function harvest() override public onlyOwnerOrSelf {
         uint256 aMainTokenBalance = mainAToken.balanceOf(address(this));
         if (aMainTokenBalance > totalAmountOfMainTokens) {
-            mainAToken.safeTransfer(owner(), aMainTokenBalance.sub(totalAmountOfMainTokens));
+            uint256 revenue = aMainTokenBalance.sub(totalAmountOfMainTokens);
+            mainAToken.safeTransfer(owner(), revenue);
+            emit Harvest(revenue);
         }
     }
 
@@ -153,6 +168,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
             revokeRole(CASH_MACHINE_CLONE_ROLE, sender);
         }
         harvest();
+        emit Withdraw(sender, amountInTokens, amountInMainTokens);
     }
 
     fallback() external {
