@@ -10,5 +10,5 @@ interface ICashMachineFactory {
         address _token,
         address[] memory _holders,
         uint256[] memory _nominals
-    ) external;
+    ) external payable;
 }

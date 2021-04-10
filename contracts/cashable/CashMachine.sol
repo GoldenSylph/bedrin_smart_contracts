@@ -4,30 +4,33 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/Initializable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/introspection/IERC165.sol"
-import "@openzeppelin/contracts/introspection/ERC165.sol"
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
 
 import "./lib/CashLib.sol";
 import "./utils/FundsEvacuator.sol";
 import "./interfaces/ICashMachine.sol";
+import "./interfaces/ICashableStrategy.sol";
 
-contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
+
+contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine, Context  {
 
   using SafeERC20 for IERC20;
-  using Address for address;
+  using Address for address payable;
   using SafeMath for uint256;
-  using CashLib.CashSet for CashLib.Cash;
+  using CashLib for CashLib.CashSet;
 
   address public token;
-  CashLib.CashSet public cashPile;
-  address public team;
+  address payable public team;
   address public strategy;
   address public cashMachineFactory;
+
+  CashLib.CashSet private cashPile;
 
   event Operation(address indexed _token, uint256 indexed _amount, bool earnOrHarvest);
 
@@ -38,7 +41,7 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
 
   function configure(
       address _token,
-      address _team,
+      address payable _team,
       address _strategy,
       address _cashMachineFactory,
       uint256[] memory _nominals,
@@ -62,16 +65,16 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
       }
   }
 
-  function burn(address payable _to, uint256 _id) external {
+  function burn(address payable _to, uint256 _id) override external {
       require(cashPile.atHolder(_id) == _msgSender(), "onlyHolder");
       uint256 nominal = cashPile.atNominal(_id);
-      IStrategy(strategy).withdraw(nominal);
+      ICashableStrategy(strategy).withdraw(nominal);
 
       IERC20 tokenErc20 = IERC20(token);
       if (token != CashLib.ETH) {
-          tokenErc20.safeTransfer(to, nominal);
+          tokenErc20.safeTransfer(_to, nominal);
       } else {
-          to.sendValue(nominal);
+          _to.sendValue(nominal);
       }
       require(cashPile.removeAt(_id), '!removed');
 
@@ -87,7 +90,7 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
       }
   }
 
-  function supportsInterface(bytes4 interfaceId) public view override returns(bool) {
+  function supportsInterface(bytes4 interfaceId) public pure override returns(bool) {
       return interfaceId == 0x01ffc9a7
         || interfaceId == CashLib.MACHINE_ERC165;
   }
@@ -96,6 +99,6 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine  {
       revert("NoFallback");
   }
 
-  receive() external {}
+  receive() payable external {}
 
 }

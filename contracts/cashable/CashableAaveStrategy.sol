@@ -3,23 +3,25 @@ pragma solidity =0.8.3;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/Initializable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@uniswap/v2-periphery/contracts/UniswapV2Router02.sol";
+
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "./lib/CashLib.sol";
 import "./CashMachine.sol";
 import "./interfaces/third_party/aave/ILendingPool.sol";
+import "./interfaces/ICashableStrategy.sol";
 
 contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable, ICashableStrategy {
 
     using SafeERC20 for IERC20;
-    using Address for address;
+    using Address for address payable;
     using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -36,7 +38,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
 
     IERC20 public mainToken;
     IERC20 public mainAToken;
-    UniswapV2Router02 public uniswapRouter;
+    IUniswapV2Router02 public uniswapRouter;
     ILendingPool public aaveLendingPool;
     address public cashMachineFactory;
 
@@ -69,29 +71,30 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
     ) external initializer {
         mainToken = IERC20(_mainToken);
         mainAToken = IERC20(_mainAToken);
-        uniswapRouter = UniswapV2Router02(_uniswapRouter);
+        uniswapRouter = IUniswapV2Router02(_uniswapRouter);
         aaveLendingPool = ILendingPool(_aaveLendingPool);
         cashMachineFactory = _cashMachineFactory;
     }
 
-    function _getAmountOut(address _from, address _to, uint256 _amount) internal returns(uint256) {
+    function _getAmountOut(address _from, address _to, uint256 _amount) internal view returns(uint256, address[] memory) {
         address[] memory path = new address[](2);
         path[0] = _from;
         path[1] = _to;
-        uint256[] _amountsOut = UniswapV2Router02.getAmountsOut(_amount, path);
-        return _amountsOut[1];
+        uint256[] memory _amountsOut = uniswapRouter.getAmountsOut(_amount, path);
+        return (_amountsOut[1], path);
     }
 
     function _convertUniswap(address _tokenIn, address _tokenOut, uint256 _amount) internal returns(uint256 amountOut) {
-        if (_tokenIn != _tokenOut) {
-            require(IERC20(_token).approve(address(uniswapRouter), _amount), '!uniswapApprove');
-            amountOut = _getAmountOut(_tokenIn, _tokenOut, _amount);
+      if (_tokenIn != _tokenOut) {
+            require(IERC20(_tokenIn).approve(address(uniswapRouter), _amount), '!uniswapApprove');
+            address[] memory path;
+            (amountOut, path) = _getAmountOut(_tokenIn, _tokenOut, _amount);
             if (_tokenIn != CashLib.ETH && _tokenOut == CashLib.ETH) {
-                UniswapV2Router02.swapExactTokensForETH(_amount, amountOut, path, msg.sender, block.timestamp);
+                uniswapRouter.swapExactTokensForETH(_amount, amountOut, path, msg.sender, block.timestamp);
             } else if (_tokenIn == CashLib.ETH && _tokenOut != CashLib.ETH) {
-                UniswapV2Router02.swapExactETHForTokens{value: _amount}(_amount, amountOut, path, msg.sender, block.timestamp);
+                uniswapRouter.swapExactETHForTokens{value: _amount}(amountOut, path, msg.sender, block.timestamp);
             } else {
-                UniswapV2Router02.swapExactTokensForTokens(_amount, amountOut, path, msg.sender, block.timestamp);
+                uniswapRouter.swapExactTokensForTokens(_amount, amountOut, path, msg.sender, block.timestamp);
             }
         } else {
             amountOut = _amount;
@@ -100,6 +103,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
 
     function register(address _cashMachine, address _token, uint256 _amount)
         external
+        override
         onlyCashMachineFactory
     {
         grantRole(CASH_MACHINE_CLONE_ROLE, _cashMachine);
@@ -112,15 +116,16 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         totalAmountOfMainTokens = totalAmountOfMainTokens.add(amountInMainTokens);
     }
 
-    function harvest() public onlyOwnerOrSelf {
+    function harvest() override public onlyOwnerOrSelf {
         uint256 aMainTokenBalance = mainAToken.balanceOf(address(this));
-        if (aMainTokenBalance > totalValue) {
+        if (aMainTokenBalance > totalAmountOfMainTokens) {
             mainAToken.safeTransfer(owner(), aMainTokenBalance.sub(totalAmountOfMainTokens));
         }
     }
 
     function withdraw(uint256 _amount)
         external
+        override
         onlyCashMachineClone
     {
         address sender = _msgSender();
@@ -128,7 +133,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         address token = tokens[sender];
         address mainTokenAddress = address(mainToken);
 
-        uint256 amountInMainTokens = _getAmountOut(token, mainTokenAddress, _amount);
+        (uint256 amountInMainTokens,) = _getAmountOut(token, mainTokenAddress, _amount);
 
         mainAToken.approve(address(aaveLendingPool), amountInMainTokens);
         aaveLendingPool.withdraw(mainTokenAddress, amountInMainTokens, address(this));
@@ -138,7 +143,7 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         if (token != CashLib.ETH) {
             IERC20(token).safeTransfer(sender, amountInTokens);
         } else {
-            sender.sendValue(amountInTokens);
+            payable(sender).sendValue(amountInTokens);
         }
 
         (,totalAmountOfMainTokens) = totalAmountOfMainTokens.trySub(amountInMainTokens);
@@ -149,5 +154,11 @@ contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable
         }
         harvest();
     }
+
+    fallback() external {
+        revert("NoFallback");
+    }
+
+    receive() payable external {}
 
 }

@@ -2,10 +2,13 @@
 pragma solidity =0.8.3;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 
-library CashLib is EnumerableSet {
+library CashLib {
+
+    using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     bytes4 public constant MACHINE_ERC165 = 0xecbf4233; // bytes4(keccak256('cashMachineName()'));
@@ -18,7 +21,9 @@ library CashLib is EnumerableSet {
     }
 
     struct CashSet {
-        Set _inner;
+        EnumerableSet.UintSet ids;
+        EnumerableSet.AddressSet holders;
+        EnumerableSet.UintSet nominals;
     }
 
     /**
@@ -27,8 +32,11 @@ library CashLib is EnumerableSet {
      * Returns true if the value was added to the set, that is if it was not
      * already present.
      */
-    function add(CashSet storage set, Cash value) internal returns(bool) {
-        return _add(set._inner, abi.encode(value.id, value.holder, value.nominal));
+    function add(CashSet storage set, Cash memory value) internal returns(bool) {
+        return
+            set.ids.add(value.id) &&
+            set.holders.add(value.holder) &&
+            set.nominals.add(value.nominal);
     }
 
     /**
@@ -37,8 +45,11 @@ library CashLib is EnumerableSet {
      * Returns true if the value was removed from the set, that is if it was
      * present.
      */
-    function remove(CashSet storage set, Cash value) internal returns(bool) {
-        return _remove(set._inner, abi.encode(value.id, value.holder, value.nominal));
+    function remove(CashSet storage set, Cash memory value) internal returns(bool) {
+        return
+            set.ids.remove(value.id) &&
+            set.holders.remove(value.holder) &&
+            set.nominals.remove(value.nominal);
     }
 
     /**
@@ -48,21 +59,27 @@ library CashLib is EnumerableSet {
      * present.
      */
     function removeAt(CashSet storage set, uint256 index) internal returns(bool) {
-        return _remove(set._inner, _at(set._inner, index));
+      return
+          set.ids.remove(set.ids.at(index)) &&
+          set.holders.remove(set.holders.at(index)) &&
+          set.nominals.remove(set.nominals.at(index));
     }
 
     /**
      * @dev Returns true if the value is in the set. O(1).
      */
-    function contains(CashSet storage set, Cash value) internal view returns(bool) {
-        return _contains(set._inner, abi.encode(value.id, value.holder, value.nominal));
+    function contains(CashSet storage set, Cash memory value) internal view returns(bool) {
+        return
+            set.ids.contains(value.id) &&
+            set.holders.contains(value.holder) &&
+            set.nominals.contains(value.nominal);
     }
 
     /**
      * @dev Returns the number of values in the set. O(1).
      */
     function length(CashSet storage set) internal view returns(uint256) {
-        return _length(set._inner);
+        return set.ids.length();
     }
 
    /**
@@ -76,10 +93,7 @@ library CashLib is EnumerableSet {
     * - `index` must be strictly less than {length}.
     */
     function atId(CashSet storage set, uint256 index) internal view returns(uint256 _id) {
-        (_id,,) = abi.decode(
-          _at(set._inner, index),
-          uint255, address, uint256
-        );
+        return set.ids.at(index);
     }
 
     /**
@@ -93,10 +107,7 @@ library CashLib is EnumerableSet {
      * - `index` must be strictly less than {length}.
      */
     function atHolder(CashSet storage set, uint256 index) internal view returns(address _holder) {
-        (,_holder,) = abi.decode(
-          _at(set._inner, index),
-          uint255, address, uint256
-        );
+        return set.holders.at(index);
     }
 
     /**
@@ -110,10 +121,7 @@ library CashLib is EnumerableSet {
      * - `index` must be strictly less than {length}.
      */
     function atNominal(CashSet storage set, uint256 index) internal view returns(uint256 _nominal) {
-        (,,_nominal) = abi.decode(
-          _at(set._inner, index),
-          uint255, address, uint256
-        );
+        return set.nominals.at(index);
     }
 
 }

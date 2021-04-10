@@ -2,12 +2,16 @@
 pragma solidity =0.8.3;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
+import "../lib/CashLib.sol";
 
 contract FundsEvacuator {
+
     using SafeERC20 for IERC20;
+    using Address for address payable;
 
     address public evacuator;
     bool public anyToken;
@@ -31,10 +35,15 @@ contract FundsEvacuator {
         evacuator = _to;
     }
 
-    function evacuate(address _otherToken, address _to) external onlyEvacuator {
+    function evacuate(address _otherToken, address payable _to) external onlyEvacuator {
         if (!anyToken) {
-          require(_otherToken != tokenToStay, "=tokenToStay");
+            require(_otherToken != tokenToStay, "=tokenToStay");
         }
-        IERC20(_otherToken).safeTransfer(_to);
+        if (_otherToken != CashLib.ETH) {
+            IERC20 otherTokenERC20 = IERC20(_otherToken);
+            otherTokenERC20.safeTransfer(_to, otherTokenERC20.balanceOf(address(this)));
+        } else {
+            _to.sendValue(address(this).balance);
+        }
     }
 }
