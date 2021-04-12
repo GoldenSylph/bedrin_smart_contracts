@@ -19,7 +19,7 @@ import "./CashMachine.sol";
 import "./interfaces/third_party/aave/ILendingPool.sol";
 import "./interfaces/ICashableStrategy.sol";
 
-contract CashableAaveStrategy is Ownable, Initializable, AccessControlEnumerable, ICashableStrategy {
+contract CashableUniswapAaveStrategy is Ownable, Initializable, AccessControlEnumerable, ICashableStrategy {
 
     using SafeERC20 for IERC20;
     using Address for address payable;
