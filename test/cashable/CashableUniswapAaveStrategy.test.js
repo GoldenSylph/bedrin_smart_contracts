@@ -16,6 +16,6 @@ const { ZERO, ONE, getMockTokenPrepared, processEventArgs, checkSetter } = requi
 
 const MockContract = artifacts.require("MockContract");
 
-contract('CashMachineFactory', (accounts) => {
+contract('CashableUniswapAaveStrategy', (accounts) => {
 
 });

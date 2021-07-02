@@ -78,7 +78,7 @@ contract CashMachine is Initializable, FundsEvacuator, ERC165, ICashMachine, Con
       }
       require(cashPile.removeAt(_id), '!removed');
 
-      // if some funds are stuck in there - they are sent to team address, to further return or reinvest
+      // if some funds are stuck in here - they are sent to team address, to further return or reinvest
       if (cashPile.length() == 0) {
           if (token != CashLib.ETH) {
               uint256 balance = tokenErc20.balanceOf(address(this));
